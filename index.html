@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adventure Quest - INPHB</title>
+    <style>
+        :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #10b981; }
+        .theme-ocean { --bg: #0c4a6e; --card: #0ea5e9; --primary: #075985; }
+        .theme-forest { --bg: #064e3b; --card: #10b981; --primary: #065f46; }
+        .theme-volcano { --bg: #450a0a; --card: #ef4444; --primary: #991b1b; }
+
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; transition: 0.5s; overflow: hidden; display: flex; }
+
+        #sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100%; background: #1e293b; z-index: 100; padding: 20px; box-shadow: 10px 0 15px rgba(0,0,0,0.3); border-right: 1px solid rgba(255,255,255,0.05); box-sizing: border-box; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
+        .main-content { margin-left: 260px; width: calc(100% - 260px); display: flex; flex-direction: column; height: 100vh; }
+
+        .top-bar { padding: 15px; display: flex; justify-content: flex-end; align-items: center; background: rgba(0,0,0,0.2); }
+        .btn-menu { display: none; } 
+        .points-display { background: #d4a017; color: black; padding: 6px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+
+        .view { padding: 20px; flex: 1; overflow-y: auto; }
+        .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
+        .hidden { display: none !important; }
+
+        .enigma-container { max-width: 450px; margin: 0 auto; text-align: center; }
+        button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.2s; }
+        button:hover { filter: brightness(1.2); }
+        
+        input[type="text"] { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; outline: none; box-sizing: border-box; margin-top: 10px; }
+        .enigma-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .enigma-grid img { width: 100%; height: 120px; object-fit: cover; border-radius: 12px; }
+
+        .shake { animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+
+        @media (max-width: 768px) {
+            #sidebar { left: -260px; transition: 0.3s; }
+            #sidebar.open { left: 0; }
+            .main-content { margin-left: 0; width: 100%; }
+            .btn-menu { display: block; background:none; border:none; color:white; font-size:24px; position: absolute; left: 15px; top: 15px; width: auto; margin:0; }
+        }
+    </style>
+</head>
+<body onload="initGame()">
+
+    <div id="overlay" class="overlay" onclick="toggleMenu()"></div>
+
+    <div id="sidebar">
+        <h2 style="margin-top:0">⚙️ Menu</h2>
+        <button onclick="showView('view-game')">🏠 Mission Actuelle</button>
+        <button onclick="showView('view-team')">👥 Espace Équipe</button>
+        <button onclick="showView('view-shop')">🛒 Boutique</button>
+        <hr style="border: 0.5px solid rgba(255,255,255,0.1); margin: 20px 0;">
+        <button style="background: #ef4444;" onclick="resetProgress()">Réinitialiser</button>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="btn-menu" onclick="toggleMenu()">☰</button>
+            <div class="points-display">🪙 <span id="pts-val">100</span></div>
+        </div>
+
+        <div id="view-game" class="view">
+            <div id="mission-1" class="card enigma-container">
+                <h2 style="margin-top:0">Mission 1</h2>
+                <div class="enigma-grid">
+                    <img src="https://media.istockphoto.com/id/1270392109/fr/photo/ferme-de-poulet-%C3%A0-lint%C3%A9rieur-alimentation-de-poulet-ferme-pour-la-culture-des-poulets-de.jpg?s=612x612&w=0&k=20&c=BQ0YaFIGO2OGjx73j7e5dzowck4bIEAD20rnJsOodNg=">
+                    <img src="https://media.gettyimages.com/id/1138138146/fr/photo/vue-arri%C3%A8re-dun-grand-groupe-d%C3%A9tudiants-sur-une-classe-%C3%A0-la-salle-de-conf%C3%A9rence.jpg?s=612x612&w=gi&k=20&c=juaaQAIsbTBVHxfadM2ccLaXb9JfuS7ynbxT7NuMAYg=">
+                    <img src="https://media-files.abidjan.net/photo/INPHB%20(59).JPG">
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnfuuvlorW_NyhjQnyvBpBGTSZPpB5bNOLdw&s">
+                </div>
+                <input type="text" id="enigma-input" placeholder="Réponse...">
+                <button onclick="validateEnigma()">Valider la Mission</button>
+            </div>
+
+            <div id="mission-2" class="card enigma-container hidden">
+                <h2 style="margin-top:0">Mission 2</h2>
+                <p style="color: #cbd5e1; font-style: italic; border-left: 3px solid var(--primary); padding-left: 10px; text-align: left;">
+                    "Des piliers vivants montent vers le ciel, les feuilles cachent la lumière, le voyageur qui veut continuer sa route doit marcher dans leurs ombres."
+                </p>
+                <button id="btn-gps-m2" style="background: var(--accent);" onclick="checkLocationM2()">📍 Je suis sur place !</button>
+            </div>
+
+            <div id="mission-3" class="card enigma-container hidden">
+                <h2 style="margin-top:0">Mission 3</h2>
+                <p style="color: #cbd5e1; font-style: italic; border-left: 3px solid #f59e0b; padding-left: 10px; text-align: left;">
+                    "On m’entend avant de me voir : plateaux qui s’entrechoquent, voix qui s’entremêlent..."
+                </p>
+                <div id="m3-step-1">
+                    <input type="text" id="m3-answer" placeholder="Nom du lieu...">
+                    <button onclick="validateM3Answer()">Vérifier le lieu</button>
+                </div>
+                <div id="m3-step-2" class="hidden">
+                    <button id="btn-gps-m3" style="background: var(--accent);" onclick="checkLocationM3()">📍 Je suis au STO !</button>
+                </div>
+            </div>
+
+            <div id="mission-4" class="card enigma-container hidden">
+                <h2 style="margin-top:0">Mission 4</h2>
+                <p style="color: #cbd5e1; font-style: italic; border-left: 3px solid #6366f1; padding-left: 10px; text-align: left;">
+                    "mr Balo utilise une Hache pour fendre le Bois..."
+                </p>
+                <button id="btn-gps-m4" style="background: var(--accent);" onclick="checkLocationM4()">📍 Je suis arrivé !</button>
+            </div>
+
+            <div id="mission-5" class="card enigma-container hidden">
+                <h2 style="margin-top:0">Mission 5 : L'Origine</h2>
+                <p style="color: #cbd5e1; font-style: italic; border-left: 3px solid #ec4899; padding-left: 10px; text-align: left;">
+                    "Saurez-vous deviner là où tout a commencé ?"
+                </p>
+                <div id="m5-step-1">
+                    <input type="text" id="m5-answer" placeholder="Réponse...">
+                    <button onclick="validateM5Answer()">Valider le lieu</button>
+                </div>
+                <div id="m5-step-2" class="hidden">
+                    <button id="btn-gps-m5" style="background: var(--accent);" onclick="checkLocationM5()">📍 Je suis au Centre !</button>
+                </div>
+            </div>
+
+            <div id="mission-6" class="card enigma-container hidden">
+                <h2 style="margin-top:0">Mission 6 : Le Seuil</h2>
+                <p style="color: #cbd5e1; font-style: italic; border-left: 3px solid #fbbf24; padding-left: 10px; text-align: left;">
+                    "On y est entré une première fois, curieux et novices... Qu’est-ce qui change quand on franchit deux fois le même seuil ?"
+                </p>
+                <input type="text" id="m6-answer" placeholder="Votre réponse...">
+                <button onclick="validateM6Answer()">Valider l'ultime énigme</button>
+            </div>
+
+            <div id="mission-7" class="card enigma-container hidden">
+                <h2 style="margin-top:0">Mission 7 : Le Code</h2>
+                <p style="color: #cbd5e1; font-weight: bold; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;">
+                    Déchiffrez ce texte : <br>
+                    <span style="font-size: 24px; color: #f472b6; letter-spacing: 5px;">JOQI TVF</span>
+                </p>
+                <div id="m7-step-1">
+                    <input type="text" id="m7-answer" placeholder="Votre réponse...">
+                    <button onclick="validateM7Answer()">Déchiffrer</button>
+                </div>
+                <div id="m7-step-2" class="hidden">
+                    <p style="color: #10b981; font-weight: bold;">C'est la bonne direction !</p>
+                    <button id="btn-gps-m7" style="background: var(--accent);" onclick="checkLocationM7()">📍 Je suis à l'INP SUD</button>
+                </div>
+            </div>
+
+            <div id="mission-8a" class="card enigma-container hidden" style="border: 2px solid #ef4444;">
+                <h2 style="color: #ef4444; margin-top:0;">🏁 La Grande Finale (1/2)</h2>
+                <p>"Sept jours de quête arrivent à leur terme. Trouvez le temple de la sueur au Sud, là où les paniers et les filets attendent les champions."</p>
+                <button id="btn-gps-m8a" style="background: #ef4444;" onclick="checkLocationM8a()">📍 Je suis au Gymnase du Sud</button>
+            </div>
+
+            <div id="mission-8b" class="card enigma-container hidden" style="border: 2px solid #3b82f6; background: linear-gradient(to bottom, #1e293b, #1e3a8a);">
+                <h2 style="color: #3b82f6; margin-top:0;">🏆 L'Ultime Relique (2/2)</h2>
+                <div id="m8b-step-1">
+                    <p>"Traversez l'Atlantique sur le campus... Trouvez le coin de Shakespeare et du savoir sans frontières."</p>
+                    <button style="background: #3b82f6;" onclick="checkLocationM8b()">📍 Je suis à l'American Corner</button>
+                </div>
+                <div id="m8b-step-2" class="hidden">
+                    <hr style="border: 0.5px solid rgba(255,255,255,0.2); margin: 20px 0;">
+                    <p style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; text-align: left; font-size: 0.95em;">
+                        "Je suis composé de deux parties.<br>
+                        La première évoque la vie, la nature et ce qui est vivant.<br>
+                        La seconde désigne un cercle intime, uni par des liens invisibles.<br>
+                        Assemblées, ces deux parties forment mon nom.<br>
+                        <b>Qui suis-je ?</b>"
+                    </p>
+                    <input type="text" id="final-password" placeholder="Votre réponse...">
+                    <button onclick="checkFinalCode()" style="background: #fbbf24; color: black; font-size: 1.1em;">SCELLER LA VICTOIRE</button>
+                </div>
+            </div>
+
+            <div id="success-card" class="card hidden enigma-container">
+                <h2 id="success-title" style="color: var(--accent); margin-top:0;">🏆 Réussi !</h2>
+                <p id="success-text">Félicitations ! Vous avez remporté <b>20 points</b>.</p>
+                <button id="next-btn" onclick="nextMission()">Suivant</button>
+            </div>
+        </div>
+
+        <div id="view-shop" class="view hidden">
+            <div class="card enigma-container">
+                <h3>🛒 Boutique</h3>
+                <button onclick="buyTheme('theme-ocean', 70)">Océan (70 pts)</button>
+                <button onclick="buyTheme('theme-forest', 30)">Forêt (30 pts)</button>
+                <button onclick="buyTheme('theme-volcano', 50)">Volcan (50 pts)</button>
+            </div>
+        </div>
+
+        <div id="view-team" class="view hidden">
+            <div class="card enigma-container">
+                <h3>👥 Équipe</h3>
+                <div id="team-setup"><button onclick="handleCreateTeam()">✨ Créer une équipe (-20 pts)</button></div>
+                <div id="team-ui" class="hidden">
+                    <h3 id="ui-team-name"></h3>
+                    <div style="background: rgba(0,0,0,0.2); height: 150px; border-radius: 10px; padding: 10px; overflow-y:auto;" id="chat-messages">
+                        <small>Bienvenue dans votre canal d'équipe !</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userData = { points: 100, currentMission: 1, theme: '', teamName: '' };
+        
+        const config = {
+            m2: { lat: 6.886091, lon: -5.228207, radius: 250 },
+            m3: { lat: 6.880864, lon: -5.231936, radius: 250, date: '2026-03-24T00:00:00' }, 
+            m4: { lat: 6.872288, lon: -5.233245, radius: 400, date: '2026-03-24T00:00:00' }, 
+            m5: { lat: 6.822345, lon: -5.244321, radius: 250, date: '2026-03-25T00:00:00' }, 
+            m6: { date: '2026-03-25T00:00:00' },
+            m7: { lat: 6.869911, lon: -5.237241, radius: 500, date: '2026-03-26T00:00:00' },
+            m8a: { lat: 6.868291, lon: -5.237241, radius: 30, date: '2026-03-27T00:00:00' },
+            m8b: { lat: 6.869392, lon: -5.238520, radius: 20 }
+        };
+
+        // --- PERSISTENCE ---
+        function saveGame() {
+            localStorage.setItem('quest_data', JSON.stringify(userData));
+        }
+
+        function initGame() {
+            const saved = localStorage.getItem('quest_data');
+            if(saved) {
+                userData = JSON.parse(saved);
+                document.getElementById('pts-val').innerText = userData.points;
+                if(userData.theme) document.body.className = userData.theme;
+                if(userData.teamName) {
+                    document.getElementById('team-setup').classList.add('hidden');
+                    document.getElementById('team-ui').classList.remove('hidden');
+                    document.getElementById('ui-team-name').innerText = "🛡️ " + userData.teamName;
+                }
+                // Afficher la bonne mission
+                document.querySelectorAll('.card[id^="mission-"]').forEach(c => c.classList.add('hidden'));
+                let mId = userData.currentMission === 8 ? 'mission-8b' : `mission-${userData.currentMission}`;
+                document.getElementById(mId).classList.remove('hidden');
+            }
+        }
+
+        function resetProgress() {
+            if(confirm("Voulez-vous vraiment recommencer l'aventure ?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        // --- NAVIGATION & LOGIQUE ---
+        function showView(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            if(window.innerWidth <= 768) toggleMenu();
+        }
+
+        function toggleMenu() {
+            const side = document.getElementById('sidebar');
+            const over = document.getElementById('overlay');
+            side.classList.toggle('open');
+            over.style.display = side.classList.contains('open') ? 'block' : 'none';
+        }
+
+        function completeMission(num) {
+            userData.points += 20;
+            userData.currentMission = num;
+            saveGame();
+            document.getElementById('pts-val').innerText = userData.points;
+            document.getElementById(num === 8 ? 'mission-8b' : `mission-${num}`).classList.add('hidden');
+            document.getElementById('success-card').classList.remove('hidden');
+            if (num === 8) {
+                document.getElementById('success-text').innerHTML = "Vous avez scellé la victoire de la <b>BIO FAMILY</b> !";
+                document.getElementById('next-btn').style.display = 'none';
+            }
+        }
+
+        function nextMission() {
+            document.getElementById('success-card').classList.add('hidden');
+            const now = new Date();
+            const cm = userData.currentMission;
+
+            if (cm === 1) showMission(2);
+            else if (cm === 2) {
+                if (now >= new Date(config.m3.date)) showMission(3);
+                else { alert("⏳ Suite disponible Mardi !"); }
+            }
+            else if (cm === 3) showMission(4);
+            else if (cm === 4) {
+                if (now >= new Date(config.m5.date)) showMission(5);
+                else { alert("⏳ Suite disponible Mercredi !"); }
+            }
+            else if (cm === 5) showMission(6);
+            else if (cm === 6) {
+                if (now >= new Date(config.m7.date)) showMission(7);
+                else { alert("⏳ L'énigme du code arrive Jeudi !"); }
+            }
+            else if (cm === 7) {
+                if (now >= new Date(config.m8a.date)) showMission('8a');
+                else { alert("⏳ La Grande Finale commence Vendredi à 00h00 !"); }
+            }
+            saveGame();
+        }
+
+        function showMission(id) {
+            document.querySelectorAll('.card[id^="mission-"]').forEach(c => c.classList.add('hidden'));
+            document.getElementById(id === '8a' ? 'mission-8a' : `mission-${id}`).classList.remove('hidden');
+        }
+
+        // --- VALIDATIONS ---
+        function validateEnigma() {
+            const input = document.getElementById('enigma-input').value.trim().toUpperCase();
+            if(["INP-NORD", "INP NORD", "INPHB-NORD", "INPHB NORD"].includes(input)) completeMission(1);
+            else {
+                document.getElementById('mission-1').classList.add('shake');
+                setTimeout(() => document.getElementById('mission-1').classList.remove('shake'), 400);
+            }
+        }
+
+        function checkLocationM2() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m2.lat, config.m2.lon);
+                if (d <= config.m2.radius) completeMission(2);
+                else alert(`Encore ${Math.round(d)}m !`);
+            });
+        }
+
+        function validateM3Answer() {
+            if (document.getElementById('m3-answer').value.trim().toLowerCase().includes("sto")) {
+                document.getElementById('m3-step-1').classList.add('hidden');
+                document.getElementById('m3-step-2').classList.remove('hidden');
+            } else alert("Mauvaise réponse...");
+        }
+
+        function checkLocationM3() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m3.lat, config.m3.lon);
+                if (d <= config.m3.radius) completeMission(3);
+                else alert(`Distance : ${Math.round(d)}m`);
+            });
+        }
+
+        function checkLocationM4() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m4.lat, config.m4.lon);
+                if (d <= config.m4.radius) completeMission(4);
+                else alert(`Encore ${Math.round(d)}m !`);
+            });
+        }
+
+        function validateM5Answer() {
+            const ans = document.getElementById('m5-answer').value.trim().toUpperCase();
+            if (["INPHB CENTRE", "INP CENTRE", "INP-CENTRE", "INPHB-CENTRE"].includes(ans)) {
+                document.getElementById('m5-step-1').classList.add('hidden');
+                document.getElementById('m5-step-2').classList.remove('hidden');
+            } else alert("Essayez encore...");
+        }
+
+        function checkLocationM5() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m5.lat, config.m5.lon);
+                if (d <= config.m5.radius) completeMission(5);
+                else alert(`Vous êtes à ${Math.round(d)}m du Centre.`);
+            });
+        }
+
+        function validateM6Answer() {
+            const ans = document.getElementById('m6-answer').value.trim().toLowerCase();
+            if (ans === "rentrée solennelle" || ans === "la rentrée solennelle") completeMission(6);
+            else alert("Ce n'est pas la réponse attendue...");
+        }
+
+        function validateM7Answer() {
+            const ans = document.getElementById('m7-answer').value.trim().toUpperCase();
+            if (ans === "INP SUD") {
+                if (confirm("Es-tu vraiment sûr ?")) {
+                    document.getElementById('m7-step-1').classList.add('hidden');
+                    document.getElementById('m7-step-2').classList.remove('hidden');
+                    alert("Rendez-y vous pour valider !");
+                }
+            } else alert("Code incorrect...");
+        }
+
+        function checkLocationM7() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m7.lat, config.m7.lon);
+                if (d <= config.m7.radius) completeMission(7);
+                else alert(`Vous êtes encore à ${Math.round(d)}m de l'INP SUD.`);
+            });
+        }
+
+        function checkLocationM8a() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m8a.lat, config.m8a.lon);
+                if (d <= config.m8a.radius) {
+                    alert("🏃 Vitalité confirmée ! Direction l'American Corner...");
+                    document.getElementById('mission-8a').classList.add('shake');
+                    setTimeout(() => {
+                        document.getElementById('mission-8a').classList.add('hidden');
+                        document.getElementById('mission-8b').classList.remove('hidden');
+                    }, 1000);
+                } else alert(`Le gymnase est encore à ${Math.round(d)}m.`);
+            });
+        }
+
+        function checkLocationM8b() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const d = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m8b.lat, config.m8b.lon);
+                if (d <= config.m8b.radius) {
+                    document.getElementById('m8b-step-1').classList.add('hidden');
+                    document.getElementById('m8b-step-2').classList.remove('hidden');
+                } else alert(`Pas encore à l'American Corner (${Math.round(d)}m).`);
+            });
+        }
+
+        function checkFinalCode() {
+            const code = document.getElementById('final-password').value.trim().toLowerCase();
+            if (code === "bio family") completeMission(8);
+            else alert("🔒 Ce n'est pas le nom de l'alliance...");
+        }
+
+        // --- UTILS ---
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+            const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        
+        function handleCreateTeam() {
+            if(userData.points < 20) return alert("Points insuffisants !");
+            let n = prompt("Nom de l'équipe ?");
+            if(!n) return;
+            userData.points -= 20;
+            userData.teamName = n;
+            saveGame();
+            document.getElementById('pts-val').innerText = userData.points;
+            document.getElementById('team-setup').classList.add('hidden');
+            document.getElementById('team-ui').classList.remove('hidden');
+            document.getElementById('ui-team-name').innerText = "🛡️ " + n;
+        }
+
+        function buyTheme(id, price) {
+            if(userData.points >= price) {
+                userData.points -= price;
+                userData.theme = id;
+                saveGame();
+                document.body.className = id;
+                document.getElementById('pts-val').innerText = userData.points;
+            } else alert("Points insuffisants !");
+        }
+    </script>
+</body>
+</html>
