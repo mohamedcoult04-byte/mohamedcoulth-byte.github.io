@@ -1,66 +1,211 @@
-<script type="module">
-    // ... (Ton import Firebase et config)
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adventure Quest - INPHB</title>
+    <style>
+        :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #10b981; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; overflow: hidden; height: 100vh; }
 
-    // Définition du calendrier des missions
-    // Jour 2 (Mardi) : Missions 1 & 2
-    // Jour 3 (Mercredi) : Mission 3
-    // Jour 4 (Jeudi) : Mission 4 ...
-    const MISSION_SCHEDULE = {
-        1: 2, // Mission 1 débloquée le Mardi (Day 2)
-        2: 2, // Mission 2 débloquée le Mardi (Day 2)
-        3: 3, // Mission 3 débloquée le Mercredi (Day 3)
-        4: 4, // Mission 4 débloquée le Jeudi (Day 4)
-        5: 5, // Mission 5 débloquée le Vendredi (Day 5)
-        6: 6  // Mission 6 débloquée le Samedi (Day 6)
-    };
-
-    function canAccessMission(missionId) {
-        const now = new Date();
-        const currentDay = now.getDay(); // 0=Dim, 1=Lun, 2=Mar, 3=Mer, 4=Jeu, 5=Ven, 6=Sam
+        /* Auth Screen */
+        #auth-screen { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; align-items: center; justify-content: center; }
         
-        // Si on est Dimanche (0) ou Lundi (1), aucune mission n'est accessible
-        if (currentDay < 2) return false;
+        /* Layout */
+        #sidebar { width: 260px; background: #1e293b; padding: 20px; border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+        .main-content { flex: 1; display: flex; flex-direction: column; position: relative; }
+        .view { padding: 20px; flex: 1; overflow-y: auto; }
 
-        const requiredDay = MISSION_SCHEDULE[missionId];
-        return currentDay >= requiredDay;
-    }
+        /* Components */
+        .card { background: var(--card); padding: 20px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; }
+        .enigma-container { max-width: 500px; margin: 0 auto; text-align: center; }
+        .hidden { display: none !important; }
 
-    window.initGame = () => {
-        const saved = localStorage.getItem('quest_data');
-        if(saved) {
-            userData = JSON.parse(saved);
-            document.getElementById('pts-val').innerText = userData.points;
-            if(userData.theme) document.body.className = userData.theme;
+        input { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; margin-top: 10px; box-sizing: border-box; }
+        button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.2s; }
+        button:hover { filter: brightness(1.2); }
+
+        .points-display { background: #d4a017; color: black; padding: 6px 15px; border-radius: 20px; font-weight: bold; align-self: flex-end; margin: 15px; }
+        
+        .enigma-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .enigma-grid img { width: 100%; height: 120px; object-fit: cover; border-radius: 12px; }
+
+        @media (max-width: 768px) {
+            #sidebar { position: absolute; left: -260px; height: 100%; z-index: 100; transition: 0.3s; }
+            #sidebar.open { left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen">
+        <div class="card enigma-container" style="max-width: 350px;">
+            <h2 id="auth-title">⚔️ Inscription</h2>
+            <div id="reg-fields">
+                <input type="text" id="reg-nom" placeholder="Nom">
+                <input type="text" id="reg-prenom" placeholder="Prénom">
+            </div>
+            <input type="email" id="auth-email" placeholder="Email">
+            <input type="password" id="auth-pwd" placeholder="Mot de passe">
+            <button onclick="handleAuth()">Confirmer</button>
+            <p id="auth-toggle" style="font-size: 0.8em; cursor:pointer; color: var(--primary); margin-top: 15px;" onclick="toggleAuth()">Déjà un compte ? Connexion</p>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <h2 style="color: var(--primary)">⚙️ Adventure</h2>
+        <p id="user-id-display" style="color: var(--accent); font-weight: bold; font-size: 0.9em; margin-bottom: 20px;">Joueur : ...</p>
+        <button onclick="showView('view-game')">🏠 Missions</button>
+        <button onclick="showView('view-team')">👥 Équipe</button>
+        <button onclick="showView('view-shop')">🛒 Boutique</button>
+        <div style="margin-top: auto;">
+            <button style="background: #ef4444;" onclick="resetProgress()">🔄 Réinitialiser</button>
+            <button style="background: #64748b;" onclick="logout()">🚪 Quitter</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="points-display">🪙 <span id="pts-val">100</span></div>
+
+        <div id="view-game" class="view">
+            <div id="wait-screen" class="card enigma-container hidden">
+                <h2 style="color: #6366f1;">⏳ Accès Verrouillé</h2>
+                <p id="wait-msg">L'aventure commence bientôt.</p>
+                <p style="font-size: 0.8em; color: #94a3b8;">Revenez le jour prévu pour débloquer cette mission.</p>
+            </div>
+
+            <div id="mission-1" class="card enigma-container hidden">
+                <h2>Mission 1</h2>
+                <div class="enigma-grid">
+                    <img src="https://media.istockphoto.com/id/1270392109/fr/photo/ferme-de-poulet.jpg?s=612x612&w=0&k=20&c=BQ0YaFIGO2OGjx73j7e5dzowck4bIEAD20rnJsOodNg=">
+                    <img src="https://media.gettyimages.com/id/1138138146/fr/photo/etudiants-classe.jpg?s=612x612&w=gi&k=20&c=juaaQAIsbVHxfadM2ccLaXb9JfuS7ynbxT7NuMAYg=">
+                    <img src="https://media-files.abidjan.net/photo/INPHB%20(59).JPG">
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnfuuvlorW_NyhjQnyvBpBGTSZPpB5bNOLdw&s">
+                </div>
+                <input type="text" id="input-m1" placeholder="Votre réponse...">
+                <button onclick="checkM1()">Valider</button>
+            </div>
+
+            <div id="success-card" class="card enigma-container hidden">
+                <h2 style="color: var(--accent)">🏆 Mission Réussie !</h2>
+                <p>+20 points d'expérience.</p>
+                <button onclick="nextStep()">Continuer</button>
+            </div>
+        </div>
+
+        <div id="view-team" class="view hidden"><div class="card"><h3>👥 Gestion d'Équipe</h3><p>Bientôt disponible...</p></div></div>
+        <div id="view-shop" class="view hidden"><div class="card"><h3>🛒 Boutique d'Objets</h3><p>Bientôt disponible...</p></div></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBViCG7R5figWOjx1cZAiwb7c_zlq2Stps",
+            authDomain: "treasure-hunt-6c11e.firebaseapp.com",
+            projectId: "treasure-hunt-6c11e",
+            storageBucket: "treasure-hunt-6c11e.firebasestorage.app",
+            messagingSenderId: "692216287728",
+            appId: "1:692216287728:web:70759777dbaef6e2998d35"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        let userData = { points: 100, currentMission: 1 };
+        let isLogin = false;
+
+        // --- AUTHENTIFICATION ---
+        window.toggleAuth = () => {
+            isLogin = !isLogin;
+            document.getElementById('auth-title').innerText = isLogin ? "🔑 Connexion" : "⚔️ Inscription";
+            document.getElementById('reg-fields').classList.toggle('hidden', isLogin);
+        };
+
+        window.handleAuth = async () => {
+            const email = document.getElementById('auth-email').value;
+            const pwd = document.getElementById('auth-pwd').value;
+            try {
+                if(isLogin) {
+                    await signInWithEmailAndPassword(auth, email, pwd);
+                } else {
+                    const nom = document.getElementById('reg-nom').value;
+                    const prenom = document.getElementById('reg-prenom').value;
+                    const userCred = await createUserWithEmailAndPassword(auth, email, pwd);
+                    await updateProfile(userCred.user, { displayName: `${prenom} ${nom}` });
+                    location.reload();
+                }
+            } catch(e) { alert("Erreur : " + e.message); }
+        };
+
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, (user) => {
+            if(user) {
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('user-id-display').innerText = `Aventurier : ${user.displayName}`;
+                loadGame();
+            } else {
+                document.getElementById('auth-screen').classList.remove('hidden');
+            }
+        });
+
+        // --- LOGIQUE DE JEU ---
+        const SCHEDULE = { 1: 2, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6 }; // 2 = Mardi
+
+        function canPlay(mId) {
+            const day = new Date().getDay(); // 0=Dim, 1=Lun, 2=Mar...
+            return day >= (SCHEDULE[mId] || 7);
         }
 
-        showMission(userData.currentMission);
-    };
+        window.loadGame = () => {
+            const saved = localStorage.getItem('quest_save');
+            if(saved) userData = JSON.parse(saved);
+            updateUI();
+            showMission(userData.currentMission);
+        };
 
-    function showMission(id) {
-        // Cache tout par défaut
-        document.querySelectorAll('.card[id^="mission-"]').forEach(c => c.classList.add('hidden'));
-        document.getElementById('wait-screen').classList.add('hidden');
-        document.getElementById('success-card').classList.add('hidden');
-
-        // Vérification de l'accès selon le jour
-        if (!canAccessMission(id)) {
-            document.getElementById('wait-screen').classList.remove('hidden');
-            // Personnalisation du message d'attente
-            const nextDay = MISSION_SCHEDULE[id];
-            const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-            document.querySelector('#wait-screen p').innerHTML = `La prochaine mission sera disponible le <b>${days[nextDay]}</b>.`;
-            return;
+        function showMission(id) {
+            document.querySelectorAll('.card[id^="mission-"], #wait-screen, #success-card').forEach(c => c.classList.add('hidden'));
+            
+            if(!canPlay(id)) {
+                const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+                document.getElementById('wait-screen').classList.remove('hidden');
+                document.getElementById('wait-msg').innerHTML = `La mission ${id} ouvre le <b>${days[SCHEDULE[id]]}</b>.`;
+            } else {
+                const m = document.getElementById(`mission-${id}`);
+                if(m) m.classList.remove('hidden');
+            }
         }
 
-        // Si accès autorisé, on affiche la mission actuelle
-        const m = document.getElementById(`mission-${id}`);
-        if(m) m.classList.remove('hidden');
-    }
+        window.checkM1 = () => {
+            const val = document.getElementById('input-m1').value.toUpperCase();
+            if(val.includes("INP NORD") || val.includes("INPHB NORD")) {
+                userData.points += 20;
+                userData.currentMission = 2;
+                save();
+                document.getElementById('mission-1').classList.add('hidden');
+                document.getElementById('success-card').classList.remove('hidden');
+            } else { alert("Mauvaise réponse !"); }
+        };
 
-    // Modifie aussi ta fonction nextMission pour vérifier le jour après une victoire
-    window.nextMission = () => {
-        showMission(userData.currentMission);
-    };
+        window.nextStep = () => {
+            updateUI();
+            showMission(userData.currentMission);
+        };
 
-    // ... (Le reste de tes fonctions validateEnigma, etc.)
-</script>
+        function updateUI() { document.getElementById('pts-val').innerText = userData.points; }
+        function save() { localStorage.setItem('quest_save', JSON.stringify(userData)); }
+
+        window.showView = (id) => {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        };
+
+        window.resetProgress = () => {
+            if(confirm("Réinitialiser ?")) { localStorage.removeItem('quest_save'); location.reload(); }
+        };
+    </script>
+</body>
+</html>
