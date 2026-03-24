@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Adventure Quest - INPHB</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
     <style>
         :root { --primary: #6366f1; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #10b981; }
         .theme-ocean { --bg: #0c4a6e; --card: #0ea5e9; --primary: #075985; }
@@ -11,46 +16,43 @@
         .theme-volcano { --bg: #450a0a; --card: #ef4444; --primary: #991b1b; }
 
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; transition: 0.5s; overflow: hidden; display: flex; }
-
         #sidebar { position: fixed; left: 0; top: 0; width: 260px; height: 100%; background: #1e293b; z-index: 100; padding: 20px; box-shadow: 10px 0 15px rgba(0,0,0,0.3); border-right: 1px solid rgba(255,255,255,0.05); box-sizing: border-box; }
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; z-index: 90; }
-        .main-content { margin-left: 260px; width: calc(100% - 260px); display: flex; flex-direction: column; height: 100vh; position: relative; }
-
+        .main-content { margin-left: 260px; width: calc(100% - 260px); display: flex; flex-direction: column; height: 100vh; }
         .top-bar { padding: 15px; display: flex; justify-content: flex-end; align-items: center; background: rgba(0,0,0,0.2); }
         .btn-menu { display: none; } 
         .points-display { background: #d4a017; color: black; padding: 6px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; }
-
         .view { padding: 20px; flex: 1; overflow-y: auto; }
         .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
         .hidden { display: none !important; }
-
         .enigma-container { max-width: 450px; margin: 0 auto; text-align: center; }
         button { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; transition: 0.2s; }
-        button:hover { filter: brightness(1.2); }
-        
-        input[type="text"], input[type="email"], input[type="password"] { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; outline: none; box-sizing: border-box; margin-top: 10px; }
+        input { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; margin-top: 10px; box-sizing: border-box; }
         .enigma-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
         .enigma-grid img { width: 100%; height: 120px; object-fit: cover; border-radius: 12px; }
-
-        #auth-screen { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        #auth-screen { position: fixed; inset: 0; z-index: 9999; background: #0f172a; display: flex; align-items: center; justify-content: center; padding: 20px; }
 
         @media (max-width: 768px) {
             #sidebar { left: -260px; transition: 0.3s; }
             #sidebar.open { left: 0; }
             .main-content { margin-left: 0; width: 100%; }
-            .btn-menu { display: block; background:none; border:none; color:white; font-size:24px; position: absolute; left: 15px; top: 15px; width: auto; margin:0; z-index: 110; }
+            .btn-menu { display: block; background:none; border:none; color:white; font-size:24px; position: absolute; left: 15px; top: 15px; width: auto; margin:0; }
         }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
-        <div class="card enigma-container" style="max-width: 350px;">
-            <h2 id="auth-title">⚔️ Adventure Quest</h2>
+        <div class="card enigma-container" style="border: 1px solid var(--primary);">
+            <h2 id="auth-title">Connexion</h2>
+            <div id="register-fields" class="hidden">
+                <input type="text" id="reg-nom" placeholder="Nom">
+                <input type="text" id="reg-prenom" placeholder="Prénom">
+            </div>
             <input type="email" id="auth-email" placeholder="Email">
-            <input type="password" id="auth-pwd" placeholder="Mot de passe">
-            <button onclick="handleAuth()">Se connecter / S'inscrire</button>
-            <p style="font-size: 0.8em; color: #94a3b8; margin-top: 10px;">Les données sont sauvegardées automatiquement.</p>
+            <input type="password" id="auth-password" placeholder="Mot de passe">
+            <button onclick="handleAuth()" id="auth-btn">Se connecter</button>
+            <p id="auth-toggle" style="cursor:pointer; margin-top:15px; font-size:0.9em; color:var(--primary);" onclick="toggleAuthMode()">Pas de compte ? S'inscrire</p>
         </div>
     </div>
 
@@ -58,32 +60,25 @@
 
     <div id="sidebar">
         <h2 style="margin-top:0">⚙️ Menu</h2>
-        <p id="user-mail-display" style="font-size: 0.8em; color: var(--accent); margin-bottom: 20px;">Utilisateur : ...</p>
         <button onclick="showView('view-game')">🏠 Mission Actuelle</button>
         <button onclick="showView('view-team')">👥 Espace Équipe</button>
         <button onclick="showView('view-shop')">🛒 Boutique</button>
         <hr style="border: 0.5px solid rgba(255,255,255,0.1); margin: 20px 0;">
-        <button style="background: #ef4444;" onclick="resetProgress()">Réinitialiser</button>
-        <button style="background: #64748b; margin-top: 5px;" onclick="logout()">Déconnexion</button>
+        <button style="background: #ef4444;" onclick="logout()">Déconnexion</button>
     </div>
 
     <div class="main-content">
         <div class="top-bar">
             <button class="btn-menu" onclick="toggleMenu()">☰</button>
-            <div class="points-display">🪙 <span id="pts-val">100</span></div>
+            <div class="points-display">🪙 <span id="pts-val">0</span></div>
         </div>
 
         <div id="view-game" class="view">
-            <div id="wait-screen" class="card enigma-container hidden">
-                <h2 style="color: #6366f1;">⏳ Patience...</h2>
-                <p id="wait-msg">La prochaine mission arrive bientôt.</p>
-            </div>
-
             <div id="mission-1" class="card enigma-container hidden">
                 <h2 style="margin-top:0">Mission 1</h2>
                 <div class="enigma-grid">
-                    <img src="https://media.istockphoto.com/id/1270392109/fr/photo/ferme-de-poulet.jpg?s=612x612&w=0&k=20&c=BQ0YaFIGO2OGjx73j7e5dzowck4bIEAD20rnJsOodNg=">
-                    <img src="https://media.gettyimages.com/id/1138138146/fr/photo/vue-arri%C3%A8re-dun-grand-groupe-d%C3%A9tudiants.jpg?s=612x612&w=gi&k=20&c=juaaQAIsbTBVHxfadM2ccLaXb9JfuS7ynbxT7NuMAYg=">
+                    <img src="https://media.istockphoto.com/id/1270392109/fr/photo/ferme-de-poulet-%C3%A0-lint%C3%A9rieur-alimentation-de-poulet-ferme-pour-la-culture-des-poulets-de.jpg?s=612x612&w=0&k=20&c=BQ0YaFIGO2OGjx73j7e5dzowck4bIEAD20rnJsOodNg=">
+                    <img src="https://media.gettyimages.com/id/1138138146/fr/photo/vue-arri%C3%A8re-dun-grand-groupe-d%C3%A9tudiants-sur-une-classe-%C3%A0-la-salle-de-conf%C3%A9rence.jpg?s=612x612&w=gi&k=20&c=juaaQAIsbTBVHxfadM2ccLaXb9JfuS7ynbxT7NuMAYg=">
                     <img src="https://media-files.abidjan.net/photo/INPHB%20(59).JPG">
                     <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnfuuvlorW_NyhjQnyvBpBGTSZPpB5bNOLdw&s">
                 </div>
@@ -93,81 +88,14 @@
 
             <div id="mission-2" class="card enigma-container hidden">
                 <h2 style="margin-top:0">Mission 2</h2>
-                <p style="color: #cbd5e1; font-style: italic; border-left: 3px solid var(--primary); padding-left: 10px; text-align: left;">
-                    "Des piliers vivants montent vers le ciel..."
-                </p>
-                <button id="btn-gps-m2" style="background: var(--accent);" onclick="checkLocationM2()">📍 Je suis sur place !</button>
-            </div>
-
-            <div id="mission-3" class="card enigma-container hidden">
-                <h2 style="margin-top:0">Mission 3</h2>
-                <p>"On m’entend avant de me voir : plateaux qui s’entrechoquent..."</p>
-                <div id="m3-step-1">
-                    <input type="text" id="m3-answer" placeholder="Nom du lieu...">
-                    <button onclick="validateM3Answer()">Vérifier le lieu</button>
-                </div>
-                <div id="m3-step-2" class="hidden">
-                    <button id="btn-gps-m3" style="background: var(--accent);" onclick="checkLocationM3()">📍 Je suis au STO !</button>
-                </div>
-            </div>
-
-            <div id="mission-4" class="card enigma-container hidden">
-                <h2 style="margin-top:0">Mission 4</h2>
-                <p>"mr Balo utilise une Hache pour fendre le Bois..."</p>
-                <button id="btn-gps-m4" style="background: var(--accent);" onclick="checkLocationM4()">📍 Je suis arrivé !</button>
-            </div>
-
-            <div id="mission-5" class="card enigma-container hidden">
-                <h2 style="margin-top:0">Mission 5 : L'Origine</h2>
-                <p>"Saurez-vous deviner là où tout a commencé ?"</p>
-                <div id="m5-step-1">
-                    <input type="text" id="m5-answer" placeholder="Réponse...">
-                    <button onclick="validateM5Answer()">Valider le lieu</button>
-                </div>
-                <div id="m5-step-2" class="hidden">
-                    <button id="btn-gps-m5" style="background: var(--accent);" onclick="checkLocationM5()">📍 Je suis au Centre !</button>
-                </div>
-            </div>
-
-            <div id="mission-6" class="card enigma-container hidden">
-                <h2 style="margin-top:0">Mission 6 : Le Seuil</h2>
-                <p>"Qu’est-ce qui change quand on franchit deux fois le même seuil ?"</p>
-                <input type="text" id="m6-answer" placeholder="Votre réponse...">
-                <button onclick="validateM6Answer()">Valider</button>
-            </div>
-
-            <div id="mission-7" class="card enigma-container hidden">
-                <h2 style="margin-top:0">Mission 7 : Le Code</h2>
-                <p><span style="font-size: 24px; color: #f472b6; letter-spacing: 5px;">JOQI TVF</span></p>
-                <div id="m7-step-1">
-                    <input type="text" id="m7-answer" placeholder="Votre réponse...">
-                    <button onclick="validateM7Answer()">Déchiffrer</button>
-                </div>
-                <div id="m7-step-2" class="hidden">
-                    <button id="btn-gps-m7" style="background: var(--accent);" onclick="checkLocationM7()">📍 Je suis à l'INP SUD</button>
-                </div>
-            </div>
-
-            <div id="mission-8a" class="card enigma-container hidden">
-                <h2>🏁 La Grande Finale (1/2)</h2>
-                <button onclick="checkLocationM8a()">📍 Gymnase du Sud</button>
-            </div>
-
-            <div id="mission-8b" class="card enigma-container hidden">
-                <h2>🏆 L'Ultime Relique (2/2)</h2>
-                <div id="m8b-step-1">
-                    <button onclick="checkLocationM8b()">📍 American Corner</button>
-                </div>
-                <div id="m8b-step-2" class="hidden">
-                    <input type="text" id="final-password" placeholder="Le nom de l'alliance...">
-                    <button onclick="checkFinalCode()">SCELLER LA VICTOIRE</button>
-                </div>
+                <p>"Des piliers vivants montent vers le ciel..."</p>
+                <button onclick="checkLocationM2()">📍 Je suis sur place !</button>
             </div>
 
             <div id="success-card" class="card hidden enigma-container">
-                <h2 style="color: var(--accent)">🏆 Réussi !</h2>
-                <p id="success-text">Félicitations ! +20 points.</p>
-                <button id="next-btn" onclick="nextMission()">Continuer</button>
+                <h2 style="color: var(--accent); margin-top:0;">🏆 Réussi !</h2>
+                <p id="success-text">Félicitations ! Vous avez remporté <b>20 points</b>.</p>
+                <button onclick="nextMission()">Suivant</button>
             </div>
         </div>
 
@@ -184,188 +112,166 @@
             <div class="card enigma-container">
                 <h3>👥 Équipe</h3>
                 <div id="team-setup"><button onclick="handleCreateTeam()">✨ Créer une équipe (-20 pts)</button></div>
-                <div id="team-ui" class="hidden"><h3 id="ui-team-name"></h3></div>
+                <div id="team-ui" class="hidden"><h3 id="ui-team-name"></h3><p>Canal d'équipe activé.</p></div>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-
+    <script>
+        // --- CONFIGURATION FIREBASE ---
         const firebaseConfig = {
-            apiKey: "AIzaSyBViCG7R5figWOjx1cZAiwb7c_zlq2Stps",
-            authDomain: "treasure-hunt-6c11e.firebaseapp.com",
-            projectId: "treasure-hunt-6c11e",
-            storageBucket: "treasure-hunt-6c11e.firebasestorage.app",
-            messagingSenderId: "692216287728",
-            appId: "1:692216287728:web:70759777dbaef6e2998d35"
+            apiKey: "AIzaSyAG58GX0IqcLtSbvLrwtpZuQEkjbqB_8Rg",
+            authDomain: "chasse-tr.firebaseapp.com",
+            projectId: "chasse-tr",
+            storageBucket: "chasse-tr.firebasestorage.app",
+            messagingSenderId: "117152227652",
+            appId: "1:117152227652:web:cfe2d821f648d3ec553711"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-        window.userData = { points: 100, currentMission: 1, theme: '', teamName: '' };
-        
-        // --- PLANNING DE DÉBLOCAGE (0=Dim, 1=Lun, 2=Mar, 3=Mer, 4=Jeu, 5=Ven, 6=Sam) ---
-        const SCHEDULE = {
-            1: 0, 2: 0, // Ouvertes
-            3: 3, 4: 3, // Mercredi
-            5: 4, 6: 4, // Jeudi
-            7: 5,       // Vendredi
-            8: 6        // Samedi
+        let userData = { points: 100, currentMission: 1, theme: '', teamName: '' };
+        let isLoginMode = true;
+
+        const config = {
+            m2: { lat: 6.886091, lon: -5.228207, radius: 50 },
+            m3: { lat: 6.880864, lon: -5.231936, radius: 50 },
+            m4: { lat: 6.872288, lon: -5.233245, radius: 50 },
+            m5: { lat: 6.822345, lon: -5.244321, radius: 50 }
         };
 
-        // --- AUTH & PERSISTENCE ---
-        onAuthStateChanged(auth, (user) => {
-            if(user) {
-                document.getElementById('auth-screen').classList.add('hidden');
-                document.getElementById('user-mail-display').innerText = user.email;
-                loadLocalData();
-                showMission(window.userData.currentMission);
+        // --- AUTHENTIFICATION ---
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? "Connexion" : "Inscription";
+            document.getElementById('register-fields').classList.toggle('hidden', isLoginMode);
+            document.getElementById('auth-btn').innerText = isLoginMode ? "Se connecter" : "Créer mon compte";
+        }
+
+        async function handleAuth() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            try {
+                if (isLoginMode) {
+                    await auth.signInWithEmailAndPassword(email, password);
+                } else {
+                    const nom = document.getElementById('reg-nom').value;
+                    const prenom = document.getElementById('reg-prenom').value;
+                    const res = await auth.createUserWithEmailAndPassword(email, password);
+                    await db.collection('users').doc(res.user.uid).set({
+                        nom, prenom, points: 100, currentMission: 1, theme: '', teamName: ''
+                    });
+                }
+            } catch (e) { alert(e.message); }
+        }
+
+        function logout() { auth.signOut().then(() => location.reload()); }
+
+        // --- SYNCHRONISATION ---
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                db.collection('users').doc(user.uid).onSnapshot((doc) => {
+                    if (doc.exists) {
+                        userData = doc.data();
+                        updateUI();
+                        document.getElementById('auth-screen').classList.add('hidden');
+                    }
+                });
             } else {
                 document.getElementById('auth-screen').classList.remove('hidden');
             }
         });
 
-        window.handleAuth = async () => {
-            const email = document.getElementById('auth-email').value;
-            const pwd = document.getElementById('auth-pwd').value;
-            try { await signInWithEmailAndPassword(auth, email, pwd); } 
-            catch { await createUserWithEmailAndPassword(auth, email, pwd).catch(e => alert(e.message)); }
-        };
-
-        window.logout = () => signOut(auth);
-
-        function loadLocalData() {
-            const saved = localStorage.getItem('quest_data');
-            if(saved) window.userData = JSON.parse(saved);
-            updateUI();
-        }
-
-        function saveGame() { localStorage.setItem('quest_data', JSON.stringify(window.userData)); }
-
         function updateUI() {
-            document.getElementById('pts-val').innerText = window.userData.points;
-            if(window.userData.theme) document.body.className = window.userData.theme;
-            if(window.userData.teamName) {
+            document.getElementById('pts-val').innerText = userData.points;
+            if(userData.theme) document.body.className = userData.theme;
+            if(userData.teamName) {
                 document.getElementById('team-setup').classList.add('hidden');
                 document.getElementById('team-ui').classList.remove('hidden');
-                document.getElementById('ui-team-name').innerText = "🛡️ " + window.userData.teamName;
+                document.getElementById('ui-team-name').innerText = "🛡️ " + userData.teamName;
+            }
+            document.querySelectorAll('.view > .card').forEach(c => {
+                if(c.id.startsWith('mission-')) c.classList.add('hidden');
+            });
+            let currentId = userData.currentMission === 8 ? 'mission-8b' : `mission-${userData.currentMission}`;
+            if(document.getElementById(currentId)) document.getElementById(currentId).classList.remove('hidden');
+        }
+
+        async function saveGame() {
+            if (auth.currentUser) {
+                await db.collection('users').doc(auth.currentUser.uid).update(userData);
             }
         }
 
-        // --- NAVIGATION ---
-        window.showMission = (id) => {
-            document.querySelectorAll('.card[id^="mission-"], #wait-screen, #success-card').forEach(c => c.classList.add('hidden'));
-            
-            const today = new Date().getDay();
-            const requiredDay = SCHEDULE[id] || 0;
+        // --- LOGIQUE JEU ---
+        function validateEnigma() {
+            const input = document.getElementById('enigma-input').value.trim().toUpperCase();
+            if(["INP-NORD", "INP NORD"].includes(input)) {
+                completeMission();
+            } else alert("Mauvaise réponse !");
+        }
 
-            if(today < requiredDay) {
-                const days = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-                document.getElementById('wait-screen').classList.remove('hidden');
-                document.getElementById('wait-msg').innerText = `La mission ${id} se débloque le ${days[requiredDay]} à 00h00.`;
-            } else {
-                const mid = (id === 8) ? 'mission-8a' : `mission-${id}`;
-                const m = document.getElementById(mid);
-                if(m) m.classList.remove('hidden');
-            }
-        };
+        function checkLocationM2() {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const dist = calculateDistance(pos.coords.latitude, pos.coords.longitude, config.m2.lat, config.m2.lon);
+                if(dist <= config.m2.radius) completeMission();
+                else alert(`Encore ${Math.round(dist)}m !`);
+            });
+        }
 
-        window.showView = (id) => {
+        function completeMission() {
+            userData.points += 20;
+            document.getElementById('success-card').classList.remove('hidden');
+            // On cache la mission actuelle
+            let currentId = userData.currentMission === 8 ? 'mission-8b' : `mission-${userData.currentMission}`;
+            document.getElementById(currentId).classList.add('hidden');
+        }
+
+        function nextMission() {
+            userData.currentMission++;
+            document.getElementById('success-card').classList.add('hidden');
+            saveGame();
+        }
+
+        // --- UTILS ---
+        function showView(id) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
             if(window.innerWidth <= 768) toggleMenu();
-        };
+        }
 
-        window.toggleMenu = () => {
+        function toggleMenu() {
             document.getElementById('sidebar').classList.toggle('open');
             document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('open') ? 'block' : 'none';
-        };
+        }
 
-        // --- ACTIONS ---
-        window.completeMission = (num) => {
-            window.userData.points += 20;
-            window.userData.currentMission = num + 1;
-            saveGame();
-            updateUI();
-            document.querySelectorAll('.card[id^="mission-"]').forEach(c => c.classList.add('hidden'));
-            document.getElementById('success-card').classList.remove('hidden');
-        };
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const p1 = lat1 * Math.PI/180, p2 = lat2 * Math.PI/180;
+            const dp = (lat2-lat1) * Math.PI/180, dl = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
 
-        window.nextMission = () => {
-            document.getElementById('success-card').classList.add('hidden');
-            showMission(window.userData.currentMission);
-        };
-
-        window.resetProgress = () => {
-            if(confirm("Réinitialiser ?")) { localStorage.clear(); location.reload(); }
-        };
-
-        // --- VALIDATIONS ---
-        window.validateEnigma = () => {
-            const val = document.getElementById('enigma-input').value.toUpperCase();
-            if(val.includes("INP NORD")) completeMission(1);
-            else alert("Faux !");
-        };
-
-        window.checkLocationM2 = () => completeMission(2); // GPS simplifié pour test
-        window.validateM3Answer = () => {
-            if(document.getElementById('m3-answer').value.toLowerCase().includes("sto")) {
-                document.getElementById('m3-step-1').classList.add('hidden');
-                document.getElementById('m3-step-2').classList.remove('hidden');
-            }
-        };
-        window.checkLocationM3 = () => completeMission(3);
-        window.checkLocationM4 = () => completeMission(4);
-        window.validateM5Answer = () => {
-            if(document.getElementById('m5-answer').value.toUpperCase().includes("CENTRE")) {
-                document.getElementById('m5-step-1').classList.add('hidden');
-                document.getElementById('m5-step-2').classList.remove('hidden');
-            }
-        };
-        window.checkLocationM5 = () => completeMission(5);
-        window.validateM6Answer = () => {
-            if(document.getElementById('m6-answer').value.toLowerCase().includes("rentrée")) completeMission(6);
-        };
-        window.validateM7Answer = () => {
-            if(document.getElementById('m7-answer').value.toUpperCase().includes("SUD")) {
-                document.getElementById('m7-step-1').classList.add('hidden');
-                document.getElementById('m7-step-2').classList.remove('hidden');
-            }
-        };
-        window.checkLocationM7 = () => completeMission(7);
-        window.checkLocationM8a = () => {
-             document.getElementById('mission-8a').classList.add('hidden');
-             document.getElementById('mission-8b').classList.remove('hidden');
-        };
-        window.checkLocationM8b = () => {
-            document.getElementById('m8b-step-1').classList.add('hidden');
-            document.getElementById('m8b-step-2').classList.remove('hidden');
-        };
-        window.checkFinalCode = () => {
-            if(document.getElementById('final-password').value.toLowerCase().includes("bio family")) completeMission(8);
-        };
-
-        window.buyTheme = (id, price) => {
-            if(window.userData.points >= price) {
-                window.userData.points -= price;
-                window.userData.theme = id;
+        function buyTheme(id, price) {
+            if(userData.points >= price) {
+                userData.points -= price;
+                userData.theme = id;
                 saveGame();
-                updateUI();
             } else alert("Pas assez de points !");
-        };
+        }
 
-        window.handleCreateTeam = () => {
+        function handleCreateTeam() {
+            if(userData.points < 20) return alert("Besoin de 20 pts !");
             let n = prompt("Nom de l'équipe ?");
-            if(n && window.userData.points >= 20) {
-                window.userData.points -= 20;
-                window.userData.teamName = n;
+            if(n) {
+                userData.points -= 20;
+                userData.teamName = n;
                 saveGame();
-                updateUI();
             }
-        };
+        }
     </script>
 </body>
 </html>
